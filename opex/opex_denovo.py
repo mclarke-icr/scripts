@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
 """
-Last updated: 26/3/2015
+Last updated: 25/09/2015
 """
+
 import re
 import argparse
 
@@ -40,7 +41,7 @@ class Delim(object):
             _gene_hgvs.append("_".join([self.data[13][i],self.data[16][i]]))
         return _gene_hgvs
         
-
+ 
 #########################################################################################################################################
 
 #command line args
@@ -54,15 +55,18 @@ family = args["family"]
 outfile = args["output"]
 
 print infile
-base_dir = "/".join(infile.split("/")[:-1])+"/"
+base_dir = "/".join(infile.split("/")[:-1])
+if len(base_dir) == 0:
+    base_dir="."
 if outfile == None:
     outfile = "".join(infile.split(".txt"))+"_denovo.txt"
 print outfile
 out = open(outfile,"w")
+bedfile= "".join(outfile.split(".txt"))+".bed"
+bed = open(bedfile,"w")
 
 # extracting trio info
-
-info = Delim(infile,"noheader","\t")
+info = Delim(infile,"header","\t")
 
 mother_re = re.compile("[Mm]other")
 father_re = re.compile("[Ff]ather")
@@ -70,7 +74,8 @@ proband_re = re.compile("[Pp]roband")
 
 out = open(outfile,"w")
 
-out.write("\t".join(["CHR","POS","REF","ALT","FLAG","GENO","SAMPLE","GENE","TRANS","EX","HGVS","CLASS","V1","DBSNP","V2","PTV","TYPE"])+"\n")
+firstline="#CHROM	POS	REF	ALT	QUAL	QUALFLAG	FILTER	TR	TC	SAMPLE	GT	TYPE	ENST	GENE	TRINFO	LOC	CSN	CLASS	SO	IMPACT	ALTANN	ALTCLASS	ALTSO\n"
+out.write(firstline)
 
 total_var =0
 if family == None:
@@ -78,13 +83,15 @@ if family == None:
 else:
     family = family.split(",")
 for fam in family:
+    bed = open(fam+".bed","w")
     p_idx = [ i for i in range(len(info.lines)) if proband_re.match(info.data[2][i]) and info.data[1][i] == fam]
     m_idx = [ i for i in range(len(info.lines)) if mother_re.match(info.data[2][i]) and info.data[1][i] == fam]
     f_idx = [ i for i in range(len(info.lines)) if father_re.match(info.data[2][i]) and info.data[1][i] == fam]
     if len(p_idx)==1 and len(m_idx)==1 and len(f_idx)==1:
-        mother = Delim(base_dir+info.data[0][m_idx[0]]+"_annotated_calls.txt","header","\t")
-        father = Delim(base_dir+info.data[0][f_idx[0]]+"_annotated_calls.txt","header","\t")
-        proband = Delim(base_dir+info.data[0][p_idx[0]]+"_annotated_calls.txt","header","\t")
+        mother = Delim(base_dir+"/"+info.data[0][m_idx[0]]+"_annotated_calls.txt","header","\t")
+        father = Delim(base_dir+"/"+info.data[0][f_idx[0]]+"_annotated_calls.txt","header","\t")
+        proband = Delim(base_dir+"/"+info.data[0][p_idx[0]]+"_annotated_calls.txt","header","\t")
+        
         p_gene_hgvs = proband.get_gene_hgvs()
         m_gene_hgvs = mother.get_gene_hgvs()
         f_gene_hgvs = father.get_gene_hgvs()
@@ -97,5 +104,7 @@ for fam in family:
                    dn_idx.append(p)
         for dn in set(dn_idx):
             out.write(proband.lines[dn]+"\n")
-
+            bed.write("\t".join([proband.data[0][dn],str(int(proband.data[1][dn])-1),proband.data[1][dn],fam])+"\n")
+out.close()
+   
 print total_var
