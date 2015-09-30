@@ -30,7 +30,22 @@ class Delim(object):
         self.data = file_matrix # table of the file .data[x][y] where x is the col and y is the row
         self.lines = file_lines
         self.header = header
-
+        
+class FamilyInfo(object):
+    def __init__(self,path):
+        info = open(path,"r")
+        info_header = info.readline()
+        _family_info={}
+        for line in info.readlines():
+            (sample,family,relationship) = line.split("\t")
+            rel = relationship.rstrip()
+            if family in _family_info:
+                _family_info[family][rel] = sample
+            else:
+                _family_info[family] = { rel:sample }
+        info.close()
+        self.data = _family_info
+        
 ### main ###
 # inputs
 parser = argparse.ArgumentParser(description='add_cov.py -i infile.txt -f familyinfo.txt -o outfile')
@@ -43,17 +58,7 @@ outfile = args["output"]
 infofile =args["family"]
 
 # family info
-info = open(infofile,"r")
-info_header = info.readline()
-family_info={}
-for line in info.readlines():
-    (sample,family,relationship) = line.split("\t")
-    rel = relationship.rstrip()
-    if family in family_info:
-        family_info[family][rel] = sample
-    else:
-        family_info[family] = { rel:sample }
-info.close()
+family_info = FamilyInfo(infofile)
 #variants
 
 cv_data = {}
