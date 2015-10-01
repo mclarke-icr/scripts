@@ -1,10 +1,9 @@
 #!/usr/bin/python
 
 """
-Last updated: 25/09/2015
+Last updated: 30/09/2015
 """
-
-import re
+import os
 import argparse
 from subprocess import call
 
@@ -52,19 +51,32 @@ class FamilyInfo(object):
         for line in info.readlines():
             (sample,family,relationship) = line.split("\t")
             rel = relationship.rstrip()
+            rel = rel.upper()
             if family in family_info:
                 family_info[family][rel] = sample
             else:
                 family_info[family] = { rel:sample }
         info.close()
         self.data = family_info
- 
+        
+    def check_trio(self,family):
+        fmc=0
+        fmc = sum([ 1 for x in ['MOTHER','FATHER','PROBAND'] if x in self.data[family] ])
+        if fmc == 3:
+            return True
+            print 'T'
+        else:
+            return False
+            print 'F'
 #########################################################################################################################################
+scriptdir=os.path.dirname(os.path.realpath(__file__))
+workingdir=os.getcwd()
 
 #command line args
-parser = argparse.ArgumentParser(description='selects variants only seen in Probands from Trio data sets')
+parser = argparse.ArgumentParser(description='selects variants only seen in Probands from Trio data sets. also coverage')
 parser.add_argument("-i","--input",required=True)
 parser.add_argument("-f","--family")
+#parser.add_argument("-t","--multithread",type=int)
 args = vars(parser.parse_args())
 infile = args["input"]
 family = args["family"]
@@ -72,15 +84,10 @@ family = args["family"]
 
 print infile
 base_dir = "/".join(infile.split("/")[:-1])
-if len(base_dir) == 0:
-    base_dir="."
+base_dir=workingdir+"/"+base_dir
 
 # extracting trio info
 info = FamilyInfo(infile)
-
-mother_re = re.compile("[Mm]other")
-father_re = re.compile("[Ff]ather")
-proband_re = re.compile("[Pp]roband")
 
 total_var =0
 if family == None:
@@ -95,9 +102,12 @@ for fam in family:
     firstline="#CHROM\tPOS\tREF\tALT\tQUAL\tQUALFLAG\tFILTER\tTR\tTC\tSAMPLE\tGT\tTYPE\tENST\tGENE\tTRINFO\tLOC\tCSN\tCLASS\tSO\tIMPACT\tALTANN\tALTCLASS\tALTSO\tCOV\tMOTHERCOV\tFATHERCOV\n"
     out.write(firstline)
     # get samp IDs
-    pro = info.data[fam]['Proband']
-    mo = info.data[fam]['Mother']
-    fa = info.data[fam]['Father']
+    if info.check_trio(fam) == False :
+        print fam+" is an incomplete trio; Check the input file.\n"
+        continue
+    pro = info.data[fam]['PROBAND']
+    mo = info.data[fam]['MOTHER']
+    fa = info.data[fam]['FATHER']
     # read in .txt files
     mother = Delim(base_dir+"/"+mo+"_annotated_calls.txt","header","\t")
     father = Delim(base_dir+"/"+fa+"_annotated_calls.txt","header","\t")
@@ -121,19 +131,19 @@ for fam in family:
     bed.close()
     #out.close()
     #running cava via bash
-    exit_id = call(["python2.7","../opex-v1.0.0/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+pro+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o", pro+"_dn_coverage"] )
+    exit_id = call(["python2.7",scriptdir+"/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+pro+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o",  base_dir+"/"+pro+"_dn_coverage"] )
     if exit_id != 0:
         exit("CoverView failiure: "+exit_id)
-    exit_id = call(["python2.7","../opex-v1.0.0/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+mo+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o", mo+"_dn_coverage"] )
+    exit_id = call(["python2.7",scriptdir+"/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+mo+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o",  base_dir+"/"+mo+"_dn_coverage"] )
     if exit_id != 0:
         exit("CoverView failiure: "+exit_id)
-    exit_id = call(["python2.7","../opex-v1.0.0/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+fa+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o", fa+"_dn_coverage"] )
+    exit_id = call(["python2.7",scriptdir+"/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+fa+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o",  base_dir+"/"+fa+"_dn_coverage"] )
     if exit_id != 0:
         exit("CoverView failiure: "+exit_id)
     #reading in coverage info  
-    cv_pro = Delim(pro+"_coverview_regions.txt","header","\t")
-    cv_mo = Delim(mo+"_coverview_regions.txt","header","\t")
-    cv_fa = Delim(fa+"_coverview_regions.txt","header","\t")
+    cv_pro = Delim(base_dir+"/"+pro+"_dn_coverage_regions.txt","header","\t")
+    cv_mo = Delim(base_dir+"/"+mo+"_dn_coverage_regions.txt","header","\t")
+    cv_fa = Delim(base_dir+"/"+fa+"_dn_coverage_regions.txt","header","\t")
     #collecting coverage data
     cv_data = {}
     for idx in range(len(cv_pro.lines)):
