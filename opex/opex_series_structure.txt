@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+import things:
+
+multiprocessing
+argparse
+os
+pysam
+collections.orderedDict 
+
+
+define the multiprocessing job
+    init
+        import options,sampleID,threadidx
+        open .txt
+        open .bam
+    run
+        loop through variants
+            assign variant fields to  dict 
+            make variant counts and assign ^
+            
+            get cov from bam at var position
+            
+            add cov to orded dict
+            
+            save "tr,tc" in sample/variant matrix (orderedDict)
+        
+        write out put files
+            variant level summary (with or with out coverage; dependant on -b option)
+            "tr,tc" matrix
+            
+################
+parse options
+    -i infile - alist of sample IDs
+    -q  quality filter True if present
+    -c class filter True if present
+    -b bam suffix i.e.  SAMPLE*****.bam
+    -t number of threads
+    
+define filter lists
+
+for loop of samples
+
+    create multiplrocessing obj usig sample ID
+    run multiprocessing job
+    next
+    test if max jobs(number of nodes) is met
+    

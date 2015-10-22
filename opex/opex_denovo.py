@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2.7
 
 """
 Last updated: 30/09/2015
@@ -64,10 +64,8 @@ class FamilyInfo(object):
         fmc = sum([ 1 for x in ['MOTHER','FATHER','PROBAND'] if x in self.data[family] ])
         if fmc == 3:
             return True
-            print 'T'
         else:
             return False
-            print 'F'
 #########################################################################################################################################
 scriptdir=os.path.dirname(os.path.realpath(__file__))
 workingdir=os.getcwd()
@@ -83,8 +81,11 @@ family = args["family"]
 
 
 print infile
-base_dir = "/".join(infile.split("/")[:-1])
-base_dir=workingdir+"/"+base_dir
+if infile.startswith("/"):
+    base_dir ="/"+"/".join(infile.split("/")[:-1])
+else:
+    base_dir = "/".join(infile.split("/")[:-1])
+    base_dir=workingdir+"/"+base_dir
 
 # extracting trio info
 info = FamilyInfo(infile)
@@ -96,11 +97,14 @@ else:
     family = family.split(",")
 
 for fam in family:
+    fam = fam.strip()
+    
     # initiating out files
     bed = open(base_dir+"/"+fam+".bed","w")
     out = open(base_dir+"/"+fam+"_denovo.txt","w")
     firstline="#CHROM\tPOS\tREF\tALT\tQUAL\tQUALFLAG\tFILTER\tTR\tTC\tSAMPLE\tGT\tTYPE\tENST\tGENE\tTRINFO\tLOC\tCSN\tCLASS\tSO\tIMPACT\tALTANN\tALTCLASS\tALTSO\tCOV\tMOTHERCOV\tFATHERCOV\n"
     out.write(firstline)
+    
     # get samp IDs
     if info.check_trio(fam) == False :
         print fam+" is an incomplete trio; Check the input file.\n"
@@ -108,15 +112,18 @@ for fam in family:
     pro = info.data[fam]['PROBAND']
     mo = info.data[fam]['MOTHER']
     fa = info.data[fam]['FATHER']
+    
     # read in .txt files
     mother = Delim(base_dir+"/"+mo+"_annotated_calls.txt","header","\t")
     father = Delim(base_dir+"/"+fa+"_annotated_calls.txt","header","\t")
     proband = Delim(base_dir+"/"+pro+"_annotated_calls.txt","header","\t")
+    
     # get gene_hgvs
     p_gene_hgvs = proband.get_gene_hgvs()
     m_gene_hgvs = mother.get_gene_hgvs()
     f_gene_hgvs = father.get_gene_hgvs()
     mf_gene_hgvs = set(m_gene_hgvs + f_gene_hgvs)
+    
     # selecting denovo
     dn_idx =[]
     for p in range(len(p_gene_hgvs)):
@@ -126,10 +133,9 @@ for fam in family:
     # writing .txt and bed files
     dn_set = set(dn_idx)
     for dn in dn_set:
-        #out.write(proband.lines[dn]+"\n")
-        bed.write("\t".join([proband.data[0][dn],str(int(proband.data[1][dn])-1),proband.data[1][dn],fam])+"\n")
+        bed.write("\t".join([proband.data[0][dn],proband.data[1][dn],str(int(proband.data[1][dn])+1),fam])+"\n")
     bed.close()
-    #out.close()
+    
     #running cava via bash
     exit_id = call(["python2.7",scriptdir+"/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+pro+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o",  base_dir+"/"+pro+"_dn_coverage"] )
     if exit_id != 0:
@@ -140,21 +146,23 @@ for fam in family:
     exit_id = call(["python2.7",scriptdir+"/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+fa+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o",  base_dir+"/"+fa+"_dn_coverage"] )
     if exit_id != 0:
         exit("CoverView failiure: "+exit_id)
+        
     #reading in coverage info  
     cv_pro = Delim(base_dir+"/"+pro+"_dn_coverage_regions.txt","header","\t")
     cv_mo = Delim(base_dir+"/"+mo+"_dn_coverage_regions.txt","header","\t")
     cv_fa = Delim(base_dir+"/"+fa+"_dn_coverage_regions.txt","header","\t")
-    #collecting coverage data
+    
+    #collecting coverage data in format cv_data[probandID][chromosome][position] = [PROBANDCOV,MOTERCOV,FATHERCOV]
     cv_data = {}
     for idx in range(len(cv_pro.lines)):
         all_cov = "\t".join([cv_pro.data[6][idx],cv_mo.data[6][idx],cv_fa.data[6][idx]])
         if pro in cv_data:
             if cv_pro.data[1][idx] in cv_data[pro]:
-                cv_data[pro][cv_pro.data[1][idx]][cv_pro.data[3][idx]] = all_cov  
+                cv_data[pro][cv_pro.data[1][idx]][cv_pro.data[2][idx]] = all_cov  
             else:
-                cv_data[pro][cv_pro.data[1][idx]] = { cv_pro.data[3][idx]:all_cov } 
+                cv_data[pro][cv_pro.data[1][idx]] = { cv_pro.data[2][idx]:all_cov } 
         else:
-            cv_data[pro] = { cv_pro.data[1][idx]:{ cv_pro.data[3][idx]:all_cov } }
+            cv_data[pro] = { cv_pro.data[1][idx]:{ cv_pro.data[2][idx]:all_cov } }
     
     for dn in dn_set:
         out_line = "\t".join([proband.lines[dn].rstrip(), cv_data[pro]["chr"+proband.data[0][dn]][proband.data[1][dn]]])+"\n"
