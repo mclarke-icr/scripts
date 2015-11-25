@@ -20,7 +20,10 @@ define the multiprocessing job
             make variant counts and assign ^
             
             get cov from bam at var position
-            
+                cov options:
+                    include marked duplicates
+                    for del use mapping quality cutoff
+                    hiq cut off 
             add cov to orded dict
             
             save "tr,tc" in sample/variant matrix (orderedDict)

@@ -139,13 +139,13 @@ for fam in family:
     #running cava via bash
     exit_id = call(["python2.7",scriptdir+"/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+pro+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o",  base_dir+"/"+pro+"_dn_coverage"] )
     if exit_id != 0:
-        exit("CoverView failiure: "+exit_id)
+        exit("CoverView failiure: "+str(exit_id))
     exit_id = call(["python2.7",scriptdir+"/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+mo+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o",  base_dir+"/"+mo+"_dn_coverage"] )
     if exit_id != 0:
-        exit("CoverView failiure: "+exit_id)
+        exit("CoverView failiure: "+str(exit_id))
     exit_id = call(["python2.7",scriptdir+"/tools/CoverView-v1.1.0/CoverView.py","-i",base_dir+"/"+fa+"_picard.bam", "-b", base_dir+"/"+fam+".bed", "-o",  base_dir+"/"+fa+"_dn_coverage"] )
     if exit_id != 0:
-        exit("CoverView failiure: "+exit_id)
+        exit("CoverView failiure: "+str(exit_id))
         
     #reading in coverage info  
     cv_pro = Delim(base_dir+"/"+pro+"_dn_coverage_regions.txt","header","\t")

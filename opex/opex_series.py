@@ -5,39 +5,42 @@ Last updated: 30/09/2015
 """
 import os
 import argparse
-from collections import OrderedDict
+#from collections import OrderedDict
 import pysam
 import multiprocessing
+import time
+
+tmplog = open("tmp.log","w")
 
 class SingleJob(multiprocessing.Process):
     
-    def __init__(self,sample,options,result_queue):
+    def __init__(self,sample,options):
         multiprocessing.Process.__init__(self)
         
         #init variables
         self.sample = sample
         self.options = options
-        self.result_queue = result_queue
-        
+        #self.result_queue = result_queue
+
         #read in files
-        if len(self.options.bam) > 0:
+        if self.options.bam != None:
             self.samfile=pysam.Samfile(self.sample+self.options.bam, "rb")  
         self.variants=[ line.rstrip() for line in open(self.sample+"_annotated_calls.txt","r") ]
+        #self.variants=[ line.rstrip() for line in open(self.sample+"_denovo.txt","r") ]
         self.header =self.variants.pop(0)
 
     def getCoverage(self,chrom,pos):
         #allowing for both chr# and # noteation of chromosomes 
-        
-        #chrprefix=self.samfile.references[0].startswith('chr')
-        #if chrprefix and not chrom.startswith('chr'): goodchrom='chr'+chrom
-        #if not chrprefix and chrom.startswith('chr'): goodchrom=chrom[3:]
-        #print "___"+pos+"___"
+
         puo = self.samfile.pileup(chrom,int(pos),int(pos)+1)
-        print len(puo)
         for pileupcolumn in puo:
-            #print pileupcolumn.pos
-            if pileupcolumn.pos == pos:
-                #print pos
+
+            if pileupcolumn.pos == int(pos):
+                #mapping and base quality for highquality
+                #for pileupreadin in pileupcolumn.pileups:
+                #    bq=pileupread.alignment.query_qualities[pileupread.query_position]
+                #    mq=pileupread.alignment.mapq
+                 
                 cov = pileupcolumn.n
                 
                 if cov >=15 :
@@ -46,63 +49,56 @@ class SingleJob(multiprocessing.Process):
                     return 0
 
     def run(self):
+        tmp_out = open(self.sample+"_"+self.options.input+"_tmp.txt","w")
         var_summary = {}
         het_gt = ["0/1","1/0","1/2","2/1"]
         multi_gt = ["1/2","2/1"]
+        
         for var in self.variants:
             summary_fields =[]
             fields = var.split("\t")
             #geting coverage above 15x
-            cov15 = self.getCoverage(fields[0],fields[1])
+            if self.options.bam != None:
+                cov15 = self.getCoverage(fields[0],fields[1])
+
             #variant specific index "gene_transcript_CSN"
             idx_id = "_".join([fields[13],fields[12],fields[16]])
-            #first time variant is seen
-            if idx_id not in var_summary:
-                summary_fields =[]
-                # adding variant specific fields
-                summary_fields.extend(fields[0:4])
-                summary_fields.extend(fields[11:23])
-                #adding counts
-                countlist = [0,0,0,0,0]
-                if fields[10] == "1/1":
-                    if fields[5] == "high":
-                        countlist[0] = 1 #high hom
-                    else:
-                        countlist[1] = 1 #lo hom
-                elif fields[10] in het_gt:
-                    if fields[5] == "high":
-                        countlist[2] = 1 #high het
-                    else:
-                        countlist[3] = 1 #lo het
-                if fields[10] in multi_gt:
-                    countlist[4] = 1 #multi allelic
-                
-                summary_fields.extend(countlist)
-                summary_fields.append(cov15)
-                var_summary[idx_id] = summary_fields
-            # subsequent times variant is seen
+            summary_fields =[]
+            # adding variant specific fields
+            summary_fields.append(idx_id)
+            summary_fields.extend(fields[0:4])
+            summary_fields.extend(fields[11:23])
+
+            #adding counts
+            countlist = ["0","0","0","0","0"]
+            if fields[10] == "1/1":
+                if fields[5] == "high":
+                    countlist[0] = "1" #high hom
+                else:
+                    countlist[1] = "1" #lo hom
+            elif fields[10] in het_gt:
+                if fields[5] == "high":
+                    countlist[2] = "1" #high het
+                else:
+                    countlist[3] = "1" #lo het
+            if fields[10] in multi_gt:
+                countlist[4] = "1" #multi allelic
+            
+            summary_fields.extend(countlist)
+
+            if self.options.bam != None and cov15 != None :
+                summary_fields.append(str(cov15))
+            elif self.options.bam != None:
+                summary_fields.append("0")
             else:
-                summary_fields = var_summary[idx_id]
-                if fields[10] == "1/1":
-                    if fields[5] == "high":
-                        summary_fields[16] += 1 #high hom
-                    else:
-                        summary_fields[17] += 1 #lo hom
-                elif fields[10] in het_gt:
-                    if fields[5] == "high":
-                        summary_fields[18] += 1 #high het
-                    else:
-                        summary_fields[19] += 1 #lo het
-                if fields[10] in multi_gt:
-                    summary_fields[20] += 1 #multi allelic
-                    
-                summary_fields[21] += cov15
-                var_summary[idx_id] = summary_fields
+                summary_fields.append("N/A")
+            #adding "TR,TC" to varinat specific list
+            summary_fields.append(",".join([fields[7],fields[8]]))
 
+            outline = "\t".join(summary_fields)+"\n"
+            tmp_out.write(outline)   
 
-        self.result_queue.put(var_summary)
-
-        
+        return 0
 #############################################################################################################
 scriptdir=os.path.dirname(os.path.realpath(__file__))
 workingdir=os.getcwd()
@@ -111,36 +107,99 @@ workingdir=os.getcwd()
 parser = argparse.ArgumentParser(description='takes in a list of samples and out puts summary info from your opex runs')
 parser.add_argument("-i","--input",required=True)
 parser.add_argument("-b","--bam")
-parser.add_argument("-q","--quality",action='store_true')
-parser.add_argument("-c","--class",action='store_true')
-parser.add_argument("-t","-threads",default=1)
+parser.add_argument("-q","--quality",action='store_true',default=False)
+parser.add_argument("-c","--class",action='store_true',default=False)
+parser.add_argument("-t","--threads",default=1,type=int)
+#parser.add_argument("-q","--basequality",default=10,type=int)
+#parser.add_argument("-m","--mappingquality",default=20,type=int)
+#parser.add_argument("-d","--incduplicates",action='store_true',default=False)
 options = parser.parse_args()
 print options.input
 
 # filter lists
 q_list = ["low"]
 c_list =["INT","3PU","5PU"]
+
 #setting up jobs
 samples = [ line.rstrip() for line in open(options.input,"r") ]
 job_list = []
-tables = multiprocessing.Queue()
-#for sample in samples:
-#
-#    mp_obj = SingleJob(sample,options,tables)
-#    
-#    job_list.append(mp_obj)
-#
-mp_obj = SingleJob(samples[0],options,tables)
-job_list.append(mp_obj)
+#tables = multiprocessing.Queue()
+print "make jobs"
+for sample in samples:
 
+    mp_obj = SingleJob(sample,options)
+    
+    job_list.append(mp_obj)
+
+print "jobs made"
 #running jobs
-for job in job_list: job.start()
-#for job in job_list: job.join()
-
+job_idx =0
+running = 0
+while job_idx < len(job_list):
+    if running < options.threads:
+        job_list[job_idx].start()
+        job_idx += 1
+    else:
+        time.sleep(5)
+    time.sleep(1)
+    running = 0
+    for job in job_list: 
+        if job.is_alive(): running += 1
+        
+while len(multiprocessing.active_children()) > 0:
+    time.sleep(10)
+print "jobs run"
 #collecting returned data
 all_var = {}
-for sample in samples:
-    outdata = tables.get()
-    #print outdata
+#samp_var_m = {}
+nsamp = len(samples)
+for samp_idx in range(len(samples)):
+    tmpdata = open(samples[samp_idx]+"_"+options.input+"_tmp.txt","r")
+    for line in tmpdata:
+        l = line.rstrip()
+        outdata = l.split("\t")
+        if outdata[22] == None:
+            tmplog.write(line)
+
+        if outdata[0] not in all_var:
+            od_list = outdata[1:17]
+            od_list.extend(map(int, outdata[17:22]))
+            od_list.extend(outdata[22:23])
+            all_var[outdata[0]] = od_list
+            # adding row to samp*var matrix
+            #samp_var_m[outdata[0]] = [0] * nsamp
+            #samp_var_m[outdata[0]][samp_idx] = outdata[23]
+        else:
+            # summing number 
+            all_var[outdata[0]][16] += int(outdata[17])
+            all_var[outdata[0]][17] += int(outdata[18])
+            all_var[outdata[0]][18] += int(outdata[19])
+            all_var[outdata[0]][19] += int(outdata[20])
+            all_var[outdata[0]][20] += int(outdata[21])
+            if options.bam != None :
+                all_var[outdata[0]][21] += int(outdata[22])
+            
+            #samp_var_m[outdata[0]][samp_idx] = outdata[23]
+
         
-        
+out = open( ".".join(options.input.split(".")[:-1])+"_variant_summary.txt", "w")
+for idx in all_var:
+    vs =[ str(av) for av in all_var[idx][0:21] ]
+    var_sum = "\t".join(vs)
+    if options.bam != None:
+        cov15 = round( int(all_var[idx][21]) / nsamp *100 , 1)
+    else:
+        cov15 ="N/A"
+    out_line = var_sum+"\t"+str(cov15)+"\n"
+    out.write(out_line)
+out.close()
+
+#out = open( ".".join(options.input.split(".")[:-1])+"_variant_summary_individuals.txt", "w")
+#out.write("var\t"+"\t".join(samples)+"\n")
+#for idx in samp_var_m :
+#    svm =[ str(samp_var_m[svl]) for svl in samp_var_m ]
+#    out_line = idx+"\t"+"\t".join(str(samp_var_m[idx]))+"\n"
+#    out.write(out_line)
+#out.close()
+for samp in samples:
+    os.remove(samp+"_"+options.input+"_tmp.txt")
