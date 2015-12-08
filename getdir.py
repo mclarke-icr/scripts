@@ -45,8 +45,9 @@ for sample in samples:
             continue
         else:
             if sample == info.data[2][idx]:
-                print "/data/sutlt/DGE/GENSUSC/gst/"+info.data[21][idx]+"/BAM/"+info.data[14][idx]+"/"+sample+"*.ba*"
-                #print sample+"\t"+info.data[20][idx]
+                #print "/data/sutlt/DGE/GENSUSC/gst/"+info.data[21][idx]+"/BAM/"+info.data[14][idx]+"/"+sample+"*.ba*"
+                print "/data/sutlt/DGE/GENSUSC/gst/"+info.data[21][idx]+"/FASTQ/"+info.data[14][idx]+"/"+sample+"*.fastq.gz"
+                #print sample+"\t"+info.lines[idx]
             
             
             

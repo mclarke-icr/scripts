@@ -28,7 +28,8 @@ print options.input
 
 options.icr1000 = "/scratch/cancgene/gst/databases/20151008_Control_unionOfAllVars_counts.txt"
 options.exac = "/scratch/cancgene/gst/databases/20151113_ExAC.r0.3.nonTCGA.sites_cavaOutput_uniqENSTandCSN.txt"
-options.sanger = "/scratch/cancgene/mclarke/REF/201511113_DeNovo_Sanger_Results_Summary.txt"
+options.sanger = "/scratch/cancgene/mclarke/REF/ProbandSangerAnnotation_20151203_ER.txt"
+#exac
 exac= {}
 with open(options.exac,"r") as exac_fh:
     header=exac_fh.readline()
@@ -42,6 +43,7 @@ with open(options.exac,"r") as exac_fh:
             exac[var_id] = 0.0
         else:
             exac[var_id] = (float(var[12])/float(var[14]))*100.0
+#icr1000
 icr1000={}
 with open(options.icr1000,"r") as icr1000_fh:
     header=icr1000_fh.readline()
@@ -51,12 +53,17 @@ with open(options.icr1000,"r") as icr1000_fh:
         var = l.split("\t")
         var_id = "_".join([var[6],var[5],var[9]]) # gene transcript csn
         icr1000[var_id] = (float(var[16])/993.0)*100.0
+#sanger
 sanger={}
 for line in open(options.sanger,"r"):
     l = line.rstrip()
     var = l.split("\t")
-    var_id = "_".join([var[5],var[6],var[7]]) # gene transcript csn
-    sanger[var_id] = var[10]
+    var_id = "_".join([var[2],var[3]]) # gene  csn
+    if var_id in sanger:
+        sanger[var_id] = sanger[var_id]+","+var[4]
+    else:
+        sanger[var_id] = var[4]
+
 
 
 vclass3 = ["SS","SY","INT","5PU","3PU","."]
@@ -69,6 +76,7 @@ for line in open(options.input,"r") :
     if var[10] in vclass3 and var[14] in vclass3:
         continue
     var_id = "_".join([var[6],var[5],var[9]]) # gene transcript csn
+    sanger_id = "_".join([var[6],var[9]]) # gene csn
     #filtering on allele freq in exac
     if var_id in exac:
         if exac[var_id] <= 0.5:
@@ -86,8 +94,8 @@ for line in open(options.input,"r") :
     else:
         outline = outline+"\t0"
     #sanger confirmation annotation
-    if var_id in sanger:
-        outline = outline+"\t"+str(sanger[var_id])
+    if sanger_id in sanger:
+        outline = outline+"\t"+str(sanger[sanger_id])
     else:
         outline = outline+"\t."
     

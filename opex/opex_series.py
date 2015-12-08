@@ -25,8 +25,7 @@ class SingleJob(multiprocessing.Process):
         #read in files
         if self.options.bam != None:
             self.samfile=pysam.Samfile(self.sample+self.options.bam, "rb")  
-        self.variants=[ line.rstrip() for line in open(self.sample+"_annotated_calls.txt","r") ]
-        #self.variants=[ line.rstrip() for line in open(self.sample+"_denovo.txt","r") ]
+        self.variants=[ line.rstrip() for line in open(self.sample+self.options.suffix,"r") ]
         self.header =self.variants.pop(0)
 
     def getCoverage(self,chrom,pos):
@@ -110,6 +109,7 @@ parser.add_argument("-b","--bam")
 parser.add_argument("-q","--quality",action='store_true',default=False)
 parser.add_argument("-c","--class",action='store_true',default=False)
 parser.add_argument("-t","--threads",default=1,type=int)
+parser.add_argument("-s", "--suffix",default="_annotated_calls.txt",type=str)
 #parser.add_argument("-q","--basequality",default=10,type=int)
 #parser.add_argument("-m","--mappingquality",default=20,type=int)
 #parser.add_argument("-d","--incduplicates",action='store_true',default=False)
@@ -151,7 +151,7 @@ while len(multiprocessing.active_children()) > 0:
 print "jobs run"
 #collecting returned data
 all_var = {}
-#samp_var_m = {}
+samp_var_m = {}
 nsamp = len(samples)
 for samp_idx in range(len(samples)):
     tmpdata = open(samples[samp_idx]+"_"+options.input+"_tmp.txt","r")
@@ -193,7 +193,7 @@ for idx in all_var:
     out_line = var_sum+"\t"+str(cov15)+"\n"
     out.write(out_line)
 out.close()
-
+# individual matrix
 #out = open( ".".join(options.input.split(".")[:-1])+"_variant_summary_individuals.txt", "w")
 #out.write("var\t"+"\t".join(samples)+"\n")
 #for idx in samp_var_m :
