@@ -5,10 +5,7 @@ Last updated: 30/09/2015
 """
 import os
 import argparse
-#from collections import OrderedDict
-import pysam
-import multiprocessing
-import time
+
 
 #tmplog = open("tmp.log","w")
 
@@ -20,6 +17,7 @@ workingdir=os.getcwd()
 #command line args
 parser = argparse.ArgumentParser(description='takes in a list of samples and out puts summary info from your opex runs')
 parser.add_argument("-i","--input",required=True)
+parser.add_argument("-o","--output",required=True)
 #parser.add_argument("-e","--exac",default=False)
 #parser.add_argument("-c","--icr1000",default=False)
 #parser.add_argument("-s","--sanger",default=False)
@@ -28,7 +26,7 @@ print options.input
 
 options.icr1000 = "/scratch/cancgene/gst/databases/20151008_Control_unionOfAllVars_counts.txt"
 options.exac = "/scratch/cancgene/gst/databases/20151113_ExAC.r0.3.nonTCGA.sites_cavaOutput_uniqENSTandCSN.txt"
-options.sanger = "/scratch/cancgene/mclarke/REF/ProbandSangerAnnotation_20151203_ER.txt"
+options.sanger = "/scratch/cancgene/mclarke/REF/ProbandSangerAnnotation_20151203_MC.txt"
 #exac
 exac= {}
 with open(options.exac,"r") as exac_fh:
@@ -67,8 +65,8 @@ for line in open(options.sanger,"r"):
 
 
 vclass3 = ["SS","SY","INT","5PU","3PU","."]
-output=".".join(options.input.split(".")[:-1])+"_annofilt.txt"
-out =open(output,"w")
+#output=".".join(options.input.split(".")[:-1])+"_annofilt.txt"
+out =open(options.output,"w")
 for line in open(options.input,"r") :
     outline =line.rstrip()
     var = outline.split("\t")

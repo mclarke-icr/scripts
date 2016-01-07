@@ -3,7 +3,6 @@
 import argparse
 
 
-
 ###
 
 parser = argparse.ArgumentParser(description='gives vcftobed -i infile.vcf -o outfile')

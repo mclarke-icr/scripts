@@ -14,18 +14,18 @@ tmplog = open("tmp.log","w")
 
 class SingleJob(multiprocessing.Process):
     
-    def __init__(self,sample,options):
+    def __init__(self,fpath,options):
         multiprocessing.Process.__init__(self)
         
         #init variables
-        self.sample = sample
+        self.fpath = fpath
         self.options = options
         #self.result_queue = result_queue
 
         #read in files
-        if self.options.bam != None:
-            self.samfile=pysam.Samfile(self.sample+self.options.bam, "rb")  
-        self.variants=[ line.rstrip() for line in open(self.sample+self.options.suffix,"r") ]
+        #if self.options.bam != None:
+        #    self.samfile=pysam.Samfile(self.fpath+self.options.bam, "rb")  
+        self.variants=[ line.rstrip() for line in open(self.fpath,"r") ]
         self.header =self.variants.pop(0)
 
     def getCoverage(self,chrom,pos):
@@ -48,7 +48,7 @@ class SingleJob(multiprocessing.Process):
                     return 0
 
     def run(self):
-        tmp_out = open(self.sample+"_"+self.options.input+"_tmp.txt","w")
+        tmp_out = open(self.fpath+"_summary_tmp.txt","w")
         var_summary = {}
         het_gt = ["0/1","1/0","1/2","2/1"]
         multi_gt = ["1/2","2/1"]
@@ -57,8 +57,8 @@ class SingleJob(multiprocessing.Process):
             summary_fields =[]
             fields = var.split("\t")
             #geting coverage above 15x
-            if self.options.bam != None:
-                cov15 = self.getCoverage(fields[0],fields[1])
+            #if self.options.bam != None:
+            #    cov15 = self.getCoverage(fields[0],fields[1])
 
             #variant specific index "gene_transcript_CSN"
             idx_id = "_".join([fields[13],fields[12],fields[16]])
@@ -85,12 +85,12 @@ class SingleJob(multiprocessing.Process):
             
             summary_fields.extend(countlist)
 
-            if self.options.bam != None and cov15 != None :
-                summary_fields.append(str(cov15))
-            elif self.options.bam != None:
-                summary_fields.append("0")
-            else:
-                summary_fields.append("N/A")
+            #if self.options.bam != None and cov15 != None :
+            #    summary_fields.append(str(cov15))
+            #elif self.options.bam != None:
+            #    summary_fields.append("0")
+            #else:
+            #    summary_fields.append("N/A")
             #adding "TR,TC" to varinat specific list
             summary_fields.append(",".join([fields[7],fields[8]]))
 
@@ -105,11 +105,12 @@ workingdir=os.getcwd()
 #command line args
 parser = argparse.ArgumentParser(description='takes in a list of samples and out puts summary info from your opex runs')
 parser.add_argument("-i","--input",required=True)
-parser.add_argument("-b","--bam")
-parser.add_argument("-q","--quality",action='store_true',default=False)
-parser.add_argument("-c","--class",action='store_true',default=False)
+parser.add_argument("-o","--output",required=True)
+#parser.add_argument("-b","--bam",default=None)
+#parser.add_argument("-q","--quality",action='store_true',default=False)
+#parser.add_argument("-c","--class",action='store_true',default=False)
 parser.add_argument("-t","--threads",default=1,type=int)
-parser.add_argument("-s", "--suffix",default="_annotated_calls.txt",type=str)
+#parser.add_argument("-s", "--suffix",default="_annotated_calls.txt",type=str)
 #parser.add_argument("-q","--basequality",default=10,type=int)
 #parser.add_argument("-m","--mappingquality",default=20,type=int)
 #parser.add_argument("-d","--incduplicates",action='store_true',default=False)
@@ -117,17 +118,17 @@ options = parser.parse_args()
 print options.input
 
 # filter lists
-q_list = ["low"]
-c_list =["INT","3PU","5PU"]
+#q_list = ["low"]
+#c_list =["INT","3PU","5PU"]
 
 #setting up jobs
-samples = [ line.rstrip() for line in open(options.input,"r") ]
+fpaths = [ line.rstrip() for line in open(options.input,"r") ]
 job_list = []
 #tables = multiprocessing.Queue()
 print "make jobs"
-for sample in samples:
+for path in fpaths:
 
-    mp_obj = SingleJob(sample,options)
+    mp_obj = SingleJob(path,options)
     
     job_list.append(mp_obj)
 
@@ -152,9 +153,9 @@ print "jobs run"
 #collecting returned data
 all_var = {}
 samp_var_m = {}
-nsamp = len(samples)
-for samp_idx in range(len(samples)):
-    tmpdata = open(samples[samp_idx]+"_"+options.input+"_tmp.txt","r")
+nsamp = len(fpaths)
+for samp_idx in range(len(fpaths)):
+    tmpdata = open(fpaths[samp_idx]+"_summary_tmp.txt","r")
     for line in tmpdata:
         l = line.rstrip()
         outdata = l.split("\t")
@@ -176,21 +177,22 @@ for samp_idx in range(len(samples)):
             all_var[outdata[0]][18] += int(outdata[19])
             all_var[outdata[0]][19] += int(outdata[20])
             all_var[outdata[0]][20] += int(outdata[21])
-            if options.bam != None :
-                all_var[outdata[0]][21] += int(outdata[22])
+            #if options.bam != None :
+            #    all_var[outdata[0]][21] += int(outdata[22])
             
             #samp_var_m[outdata[0]][samp_idx] = outdata[23]
 
         
-out = open( ".".join(options.input.split(".")[:-1])+"_variant_summary.txt", "w")
+out = open(options.output, "w")
 for idx in all_var:
     vs =[ str(av) for av in all_var[idx][0:21] ]
     var_sum = "\t".join(vs)
-    if options.bam != None:
-        cov15 = round( int(all_var[idx][21]) / nsamp *100 , 1)
-    else:
-        cov15 ="N/A"
-    out_line = var_sum+"\t"+str(cov15)+"\n"
+    #if options.bam != None:
+    #    cov15 = round( int(all_var[idx][21]) / nsamp *100 , 1)
+    #else:
+    #    cov15 ="N/A"
+    #out_line = var_sum+"\t"+str(cov15)+"\n"
+    out_line = var_sum+"\n"
     out.write(out_line)
 out.close()
 # individual matrix
@@ -201,5 +203,5 @@ out.close()
 #    out_line = idx+"\t"+"\t".join(str(samp_var_m[idx]))+"\n"
 #    out.write(out_line)
 #out.close()
-for samp in samples:
-    os.remove(samp+"_"+options.input+"_tmp.txt")
+for path in fpaths:
+    os.remove(path+"_summary_tmp.txt")

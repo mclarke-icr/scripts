@@ -32,3 +32,13 @@ out=open("/scratch/cancgene/mclarke/REF/ProbandSangerAnnotation_20151203_MC.txt"
 for sl in sanger :
     if sl[1] in samp:
         out.write("\t".join(sl))
+        
+        
+import os 
+
+for root, dirs, files in os.walk("/scratch/cancgene/mclarke/opex/opex-v1.0.0", topdown=True):
+    for name in files:
+        print(os.path.join(root, name))
+    for name in dirs:
+        print(os.path.join(root, name))
+    
