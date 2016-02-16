@@ -19,11 +19,14 @@ for f in files:
         timepoints.append(dt)
         #print dt.isoformat()
     timediff = []
+    total=0
     for t_idx in range(len(timepoints)):
         if t_idx == 0:
             continue
         t_delta = timepoints[t_idx] - timepoints[t_idx-1]
         timediff.append(t_delta)
+        #total += int(t_delta.total_seconds())
+    #timediff.append(sum(timediff, datetime.timedelta()))
     intervals[sample] = timediff
     logf.close()
 
